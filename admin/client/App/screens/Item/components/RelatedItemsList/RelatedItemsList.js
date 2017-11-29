@@ -1,12 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router';
-import { Alert, BlankState, Center, Spinner } from '../../../../elemental';
+import { Alert, BlankState, Center, GlyphButton, ResponsiveText, Spinner } from '../../../../elemental';
 
 import DragDrop from './RelatedItemsListDragDrop';
 import ListRow from './RelatedItemsListRow';
+import CreateForm from '../../../../shared/CreateForm';
 
 import { loadRelationshipItemData } from '../../actions';
 import { TABLE_CONTROL_COLUMN_WIDTH } from '../../../../../constants';
+
+import Toolbar from '../Toolbar';
+import ToolbarSection from '../Toolbar/ToolbarSection';
 
 const RelatedItemsList = React.createClass({
 	propTypes: {
@@ -18,11 +22,15 @@ const RelatedItemsList = React.createClass({
 		relatedItemId: React.PropTypes.string.isRequired,
 		relationship: React.PropTypes.object.isRequired,
 	},
+	contextTypes: {
+		router: React.PropTypes.object.isRequired,
+	},
 	getInitialState () {
 		return {
 			columns: this.getColumns(),
 			err: null,
 			items: null,
+			createIsOpen: false,
 		};
 	},
 	componentDidMount () {
@@ -116,12 +124,67 @@ const RelatedItemsList = React.createClass({
 
 		return <thead><tr>{cells}</tr></thead>;
 	},
+	renderCreateButton () {
+		const { singular } = this.props.refList;
+
+		const { createInline, editOnCreate, refPath } = this.props.relationship;
+
+		let defaultValues = {};
+		defaultValues[refPath] = this.props.relatedItemId;
+
+		if (!createInline) return null;
+
+		return (
+			<div>
+				<GlyphButton color="success" glyph="plus" position="left" onClick={() => { this.toggleCreate(true); }}>
+					<ResponsiveText hiddenXS={`New ${singular}`} visibleXS="Create" />
+				</GlyphButton>
+				<CreateForm
+					defaultValues={defaultValues}
+					list={this.props.refList}
+					isOpen={this.state.createIsOpen}
+					onCancel={() => this.toggleCreate(false)}
+					onCreate={(item) => this.onCreate(item, editOnCreate)}
+				/>
+			</div>
+		);
+	},
+	toggleCreate (visible) {
+		this.setState({
+			createIsOpen: visible,
+		});
+	},
+	onCreate (item, editOnCreate) {
+		this.toggleCreate(false);
+
+		if (editOnCreate) {
+			const list = this.props.refList;
+			this.context.router.push(`${Keystone.adminPath}/${list.path}/${item.id}`);
+		} else {
+			this.setState({
+				items: null,
+			});
+			this.loadItems();
+		}
+	},
+	renderRelatedTitle () {
+		const { path, label, hidden } = this.props.refList;
+
+		const listHref = `${Keystone.adminPath}/${path}`;
+
+		// don't render a link to the related list if it's supposed to be hidden in the Admin UI
+		if (hidden) {
+			return <h3>{label}</h3>;
+		}
+
+		return <h3 className="Relationship__link"><Link to={listHref}>{label}</Link></h3>;
+	},
 	render () {
 		if (this.state.err) {
 			return <div className="Relationship">{this.state.err}</div>;
 		}
 
-		const listHref = `${Keystone.adminPath}/${this.props.refList.path}`;
+
 		const loadingElement = (
 			<Center height={100}>
 				<Spinner />
@@ -130,7 +193,14 @@ const RelatedItemsList = React.createClass({
 
 		return (
 			<div className="Relationship">
-				<h3 className="Relationship__link"><Link to={listHref}>{this.props.refList.label}</Link></h3>
+				<Toolbar>
+					<ToolbarSection left>
+						{this.renderRelatedTitle()}
+					</ToolbarSection>
+					<ToolbarSection right>
+						{this.renderCreateButton()}
+					</ToolbarSection>
+				</Toolbar>
 				{this.props.items ? this.renderItems() : loadingElement}
 			</div>
 		);

@@ -14,6 +14,7 @@ import { Button, Form, Modal } from '../elemental';
 const CreateForm = React.createClass({
 	displayName: 'CreateForm',
 	propTypes: {
+		defaultValues: React.PropTypes.object,
 		err: React.PropTypes.object,
 		isOpen: React.PropTypes.bool,
 		list: React.PropTypes.object,
@@ -35,8 +36,16 @@ const CreateForm = React.createClass({
 			var FieldComponent = Fields[field.type];
 			values[field.path] = FieldComponent.getDefaultValue(field);
 		});
+
+		if (this.props.defaultValues) {
+			Object.keys(this.props.defaultValues).forEach(key => {
+				values[key] = this.props.defaultValues[key];
+			});
+		}
+
 		return {
 			values: values,
+			defaultValues: assign({}, values),
 			alerts: {},
 		};
 	},
@@ -48,7 +57,7 @@ const CreateForm = React.createClass({
 	},
 	handleKeyPress (evt) {
 		if (vkey[evt.keyCode] === '<escape>') {
-			this.props.onCancel();
+			this.onModalClose();
 		}
 	},
 	// Handle input change events
@@ -69,6 +78,16 @@ const CreateForm = React.createClass({
 		props.key = field.path;
 		return props;
 	},
+	resetForm () {
+		var values = assign({}, this.state.defaultValues);
+		this.setState({
+			values: values,
+		});
+	},
+	onModalClose () {
+		this.resetForm();
+		this.props.onCancel();
+	},
 	// Create a new item when the form is submitted
 	submitForm (event) {
 		event.preventDefault();
@@ -76,12 +95,13 @@ const CreateForm = React.createClass({
 		const formData = new FormData(createForm);
 		this.props.list.createItem(formData, (err, data) => {
 			if (data) {
+				// reset the form
+				this.resetForm();
 				if (this.props.onCreate) {
 					this.props.onCreate(data);
 				} else {
-					// Clear form
+					// set a success alert
 					this.setState({
-						values: {},
 						alerts: {
 							success: {
 								success: 'Item created',
@@ -168,7 +188,7 @@ const CreateForm = React.createClass({
 						variant="link"
 						color="cancel"
 						data-button-type="cancel"
-						onClick={this.props.onCancel}
+						onClick={this.onModalClose}
 					>
 						Cancel
 					</Button>
@@ -180,7 +200,7 @@ const CreateForm = React.createClass({
 		return (
 			<Modal.Dialog
 				isOpen={this.props.isOpen}
-				onClose={this.props.onCancel}
+				onClose={this.onModalClose}
 				backdropClosesModal
 			>
 				{this.renderForm()}
